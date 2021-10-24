@@ -1,0 +1,100 @@
+# input: "/mnt/ssd1/SARA/semantic_kitti/dataset"
+input: "/data/joonl4/racer/KITTI/dataset/"
+output: "semantic_kitti_4class_100x100.fixed"
+
+type: costmap
+
+sequence_length: 71
+stride: 2
+
+
+split: # sequence numbers
+  train: ["00","01","02","03","04","05","06", "07", "09", "10"]
+  valid: ["08"]
+
+
+costmap:
+  minx: -51.2
+  miny: -51.2
+  maxx:  51.2
+  maxy:  51.2
+  gridw: 0.2
+  gridh: 0.2
+
+
+# We don't adjust lidar height so that it's easier to compare with the baselines.
+lidar_height: 0.0
+
+
+postprocessing:
+  map:
+    # Width and height should be slightly larger than the costmap size to avoid issues on the border.
+    width: 128 # map width in meters
+    height: 128 # map height in meters
+    resx: 512 # map x axis resolution
+    resy: 512 # map y axis resolution
+  meanz_kernel:
+    resw: 16
+    resh: 16
+    stride: 1
+  threshold:
+    class2to1: 0.2
+    class2to3: 0.4
+    class3: 0.2
+    sky: 2.0
+
+
+learning_map:
+  0: 0     # "unlabeled"
+  1: 0     # "outlier" mapped to "unlabeled" --------------------------mapped
+  10: 4     # "car"
+  11: 4     # "bicycle"
+  13: 4     # "bus" mapped to "other-vehicle" --------------------------mapped
+  15: 4     # "motorcycle"
+  16: 4     # "on-rails" mapped to "other-vehicle" ---------------------mapped
+  18: 4     # "truck"
+  20: 4     # "other-vehicle"
+  30: 4     # "person"
+  31: 4     # "bicyclist"
+  32: 4     # "motorcyclist"
+  40: 1     # "road"
+  44: 1     # "parking"
+  48: 1     # "sidewalk"
+  49: 1     # "other-ground"
+  50: 4     # "building"
+  51: 4     # "fence"
+  52: 0     # "other-structure" mapped to "unlabeled" ------------------mapped
+  60: 1     # "lane-marking" to "road" ---------------------------------mapped
+  70: 3     # "vegetation"
+  71: 4     # "trunk"
+  72: 2     # "terrain"
+  80: 4     # "pole"
+  81: 4     # "traffic-sign"
+  99: 0     # "other-object" to "unlabeled" ----------------------------mapped
+  252: 4    # "moving-car" to "car" ------------------------------------mapped
+  253: 4    # "moving-bicyclist" to "bicyclist" ------------------------mapped
+  254: 4    # "moving-person" to "person" ------------------------------mapped
+  255: 4    # "moving-motorcyclist" to "motorcyclist" ------------------mapped
+  256: 4    # "moving-on-rails" mapped to "other-vehicle" --------------mapped
+  257: 4    # "moving-bus" mapped to "other-vehicle" -------------------mapped
+  258: 4    # "moving-truck" to "truck" --------------------------------mapped
+  259: 4    # "moving-other"-vehicle to "other-vehicle" ----------------mapped
+
+moving_classes: [252, 253, 254, 255, 256, 257, 258, 259]
+
+
+learning_map_inv: # inverse of previous map
+  0: 0      # "unlabeled", and others ignored
+  1: 40     # "free"
+  2: 72     # "low-cost"
+  3: 70     # "medium-cost"
+  4: 10     # "lethal"
+
+
+color_map:  # BGR
+  # 0: [0, 0, 0]
+  0: [255, 250, 230]
+  40: [0, 255, 0]
+  72: [0, 255, 255]
+  70: [255, 0, 0]
+  10: [0, 0, 255]

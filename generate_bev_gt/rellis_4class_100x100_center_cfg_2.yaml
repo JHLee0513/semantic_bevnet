@@ -1,0 +1,90 @@
+input: "/home/xiangyun/aristotle/datasets/rellis-updated/"
+# input: "/mnt/ssd1/SARA/Rellis-3D"
+output: "rellis_4class_100x100_2"
+
+type: costmap
+
+sequence_length: 141
+stride: 5
+
+
+split: # sequence numbers
+  train:
+    - "00000"
+    - "00001"
+    - "00002"
+    - "00003"
+  valid:
+    - "00004"
+
+costmap:
+  minx: -51.2
+  miny: -51.2
+  maxx:  51.2
+  maxy:  51.2
+  gridw: 0.2
+  gridh: 0.2
+
+
+# We don't adjust lidar height so that it's easier to compare with the baselines.
+lidar_height: 0.0
+
+
+postprocessing:
+  map:
+    # Width and height should be slightly larger than the costmap size to avoid issues on the border.
+    width: 128 # map width in meters
+    height: 128 # map height in meters
+    resx: 512 # map x axis resolution
+    resy: 512 # map y axis resolution
+  meanz_kernel:
+    resw: 16
+    resh: 16
+    stride: 1
+  threshold:
+    class2to1: 0.2 #0.2
+    class2to3: 100 #0.7 #0.4
+    class3: 0.2
+    sky: 2.0
+
+# classes are grouped into 3 traversable classes (easy, medium, hard) and non-traversable class
+learning_map:
+  0: 0 #void
+  1: 1 # dirt
+  3: 2 #grass
+  4: 4 #tree
+  5: 4 #pole
+  6: 0 #water
+  7: 0 #sky
+  8: 4 #vehicle
+  9: 4 #object
+  10: 1 #asphalt
+  12: 4 #building
+  15: 4 #log
+  17: 4 #person
+  18: 4 #fence
+  19: 3 #bush
+  23: 1 #concrete
+  27: 4 #barrier
+  31: 2 #puddle
+  33: 2 #mud
+  34: 2 #rubble
+
+moving_classes: [17]
+
+learning_map_inv:
+  0: 0
+  1: 10
+  2: 3
+  3: 19
+  4: 12
+
+
+# These are the colors for the values in learning_map_inv
+color_map:  # BGR
+  0: [0, 0, 0]
+  10: [0, 255, 0]
+  3: [0, 255, 255]
+  # 19: [0, 122, 255]
+  19: [255, 0, 0]
+  12: [0, 0, 255]

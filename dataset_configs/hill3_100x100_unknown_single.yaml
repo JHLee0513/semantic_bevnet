@@ -1,0 +1,21 @@
+num_class: 5
+class_weights: [1.0, 1.0, 1.0, 1.0, 0.5]  # Last class is unknown
+
+voxelizer:
+  point_cloud_range : [-51.2, -51.2, -2, 51.2, 51.2, 1.0]
+  voxel_size : [0.2, 0.2, 0.1]
+  max_number_of_points_per_voxel : 5
+  full_mean : False
+  max_voxels: 20000
+
+train_input_reader:
+  sequences: ['00000']
+  bev_label_dir: 'bev_labels'
+  origin: "center"
+  augment: ['drop_points', 'transform']
+
+eval_input_reader:
+  sequences: ['00000']
+  bev_label_dir: 'bev_labels'
+  origin: "center"
+  augment: []

@@ -1,0 +1,23 @@
+VoxelFeatureEncoder:
+  class: VoxelFeatureExtractorV3
+  opt: none  # no learnable parameters
+
+MiddleSparseEncoder:
+  class: SpMiddleNoDownsampleXY
+  net_kwargs:
+    output_shape: [1, 30, 512, 512, 16]
+    num_input_features: 4
+  opt: Adam
+  opt_kwargs:
+    lr: 3.0e-4
+    eps: 1.0e-5
+
+BEVClassifier:
+  class: InpaintingFCHardNetSkip1024
+  net_kwargs: 
+    num_class: 5
+    num_input_features: 192
+  opt: Adam
+  opt_kwargs:
+    lr: 3.0e-4
+    eps: 1.0e-5

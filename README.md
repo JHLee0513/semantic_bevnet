@@ -2,12 +2,40 @@
 
 Source code for our work **"Semantic Terrain Classification for Off-Road Autonomous Driving"**
 
+[website](https://sites.google.com/view/terrain-traversability/home)
+
+
 ## TODOs
 - [x] source code upload
 - [ ] model weights upload
 - [ ] dataset upload
 - [ ] Instructions on dataset generation
 - [ ] Instructions on inference
+- [ ] experiment results
+- [ ] arxiv link
+
+## Setup (Incomplete)
+
+Our setup runs python3.6+, the easiest way to setup would be to use [Anaconda](https://www.anaconda.com/):
+```
+conda create -n bevnet python=3.7
+conda activate bevnet
+# pip usually prevents issues with compiling spconv.
+# please make sure you're installing the version that matches your CUDA env.
+pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+# rest may be installed with this
+pip install -r requirements.txt
+```
+
+### SpConv: PyTorch Spatially Sparse Convolution Library
+We utlize spconv for our 3D convolution network. To install:
+```
+git clone https://github.com/traveller59/spconv.git
+git checkout fad3000249d27ca918f2655ff73c41f39b0f3127
+git submodule update
+python setup.py bdist_wheel
+cd dist && pip install *.whl
+```
 
 ## Datasets
 Datasets should be put inside `data/`. For example, `data/semantic_kitti_4class_100x100`.

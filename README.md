@@ -4,6 +4,7 @@ Source code for our work **"Semantic Terrain Classification for Off-Road Autonom
 
 [website](https://sites.google.com/view/terrain-traversability/home)
 ![Alt Text](figs/canal.gif)
+Our BEVNet-R on completly unseen data/envrionment. 
 
 ## TODOs
 - [x] source code upload

@@ -3,7 +3,7 @@
 Source code for our work **"Semantic Terrain Classification for Off-Road Autonomous Driving"**
 
 [website](https://sites.google.com/view/terrain-traversability/home)
-
+![Alt Text](figs/canal.gif)
 
 ## TODOs
 - [x] source code upload

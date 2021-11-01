@@ -13,7 +13,7 @@ def add_common_arguments(parser):
         type=int, default=1, help='Log every this number of iterations.')
     parser.add_argument('--epochs', type=int, default=15, help='Number of training epochs.')
     parser.add_argument('--dataset_type', type=str, default='costmap_4',
-        help='Dataset type (mainly for visualization purposes). Could be "costmap_4" or "kitti_19"')
+        help='Dataset type (mainly for visualization purposes). Could be "costmap_4", "kitti_19", or "heatmap"')
     parser.add_argument('--include_unknown', action='store_true', default=False,
                         help='Include the unknown class.')
 
@@ -23,8 +23,8 @@ def add_common_arguments(parser):
                         help='Stride between adjacent scans.')
 
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size.')
-    parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate.')
     parser.add_argument('--lr_decay_epoch', type=int, default=1,
                         help='Decay learning rate every this number of epochs.')
     parser.add_argument('--lr_decay', type=float, default=0.7, help='Learning rate decay.')
+    parser.add_argument('--test', action='store_true', help='Run testing.')
     return parser

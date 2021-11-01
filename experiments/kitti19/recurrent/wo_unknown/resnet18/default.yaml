@@ -1,0 +1,39 @@
+num_class: &num_class 19
+
+_default_opt: &default_opt
+  opt: Adam
+  opt_kwargs:
+    lr: 3.0e-4
+    eps: 1.0e-5
+
+VoxelFeatureEncoder:
+  class: VoxelFeatureExtractorV3
+  opt: none  # no learnable parameters
+
+MiddleSparseEncoder:
+  class: SpMiddleNoDownsampleXY
+  net_kwargs:
+    output_shape: [1, 30, 256, 256, 16]
+    num_input_features: 4
+  <<: *default_opt
+
+MergeUnit:
+  class: MergeUnit
+  net_kwargs:
+    input_channels: 192
+    costmap_pose_name: "costmap_pose"
+    #rnn_input_channels: 192
+    rnn_config:
+      input_size: [256, 256]
+      hidden_dims: [192]
+  <<: *default_opt
+
+BEVClassifier:
+  class: InpaintingResNet18
+  net_kwargs:
+    num_class: *num_class
+    num_input_features: 192
+  <<: *default_opt
+
+loss:
+  name: "CrossEntropy"

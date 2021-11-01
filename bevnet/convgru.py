@@ -108,7 +108,8 @@ class ConvGRUCellSimple(nn.Module):
 class ConvGRU(nn.Module):
     def __init__(self, input_size, input_dim, hidden_dim, kernel_size, num_layers,
                  dtype, batch_first=False, bias=True, return_all_layers=False,
-                 use_pose=True, noisy_pose=False, cell_type='standard'):
+                 use_pose=True, noisy_pose=False, cell_type='standard',
+                 warp_precision=torch.float64):
         """
 
         :param input_size: (int, int)
@@ -152,6 +153,7 @@ class ConvGRU(nn.Module):
         self.use_pose = use_pose
         self.noisy_pose = noisy_pose
         self.cell_type = cell_type
+        self.warp_precision = warp_precision
 
         cell_list = []
         for i in range(0, self.num_layers):
@@ -202,15 +204,14 @@ class ConvGRU(nn.Module):
 
         :param input_tensor: (b, t, c, h, w) or (t,b,c,h,w) depends on if batch first or not
             extracted features from alexnet
-        :param pose: (b, t, num_layers, 3, 3) or (t, b, num_layers, 6)
+        :param pose: (b, t, num_layers, 3, 3)
         :param hidden_state:
         :return: layer_output_list, last_state_list
         """
-
         if not self.batch_first:
             # (t, b, c, h, w) -> (b, t, c, h, w)
             input_tensor = input_tensor.permute(1, 0, 2, 3, 4)
-            pose = pose.permute(1, 0, 2, 3, 3)
+            pose = pose.permute(1, 0, 2, 3, 4)
 
         # Implement stateful ConvLSTM
         if hidden_state is not None:
@@ -239,7 +240,7 @@ class ConvGRU(nn.Module):
                 # then compute the next hidden and
                 # cell state through ConvLSTMCell forward function
                 if self.use_pose:
-                    input_pose = pose[:, t, 0]
+                    input_pose = pose[:, t, layer_idx]
                     ## transform h to input_pose coordinate frame
                     if cell_pose is not None:
                         # cell_pose -> input_pose transofrmation
@@ -249,20 +250,29 @@ class ConvGRU(nn.Module):
                         if self.noisy_pose:
                             M = self._noisify(M)
 
-                        transformed_h = kornia.warp_affine(h, M, dsize=h.shape[2:],
+                        transformed_h = kornia.warp_affine(h.to(self.warp_precision),
+                                                           M.to(self.warp_precision),
+                                                           dsize=h.shape[2:],
                                                            align_corners=False)
+
+                        transformed_h = transformed_h.to(h.dtype)
+
                         ### Debugging
-                        # from matplotlib.pyplot import show, imshow, figure, imsave
-                        # features = [cur_layer_input[0, t, :, :, :], transformed_h[0], h[0]]
-                        # names = ['input', 'corrected_h', 'h']
-                        # for i, fea in enumerate(features):
-                        #    img = fea.cpu().detach().numpy().mean(axis=0)
-                        #    figure()
-                        #    imshow(img)
-                        # show()
-                        #    imsave('convgru_{}.png'.format(names[i]), img)
-                        #from IPython import embed;embed()
+                        # from matplotlib.pyplot import show, imshow, figure, imsave, title
+                        # for b in range(len(h)):
+                        #    features = [cur_layer_input[b, t, :, :, :], transformed_h[b], h[b]]
+                        #    names = ['_0input', '_1corrected_h', '_2h']
+                        #    for i, fea in enumerate(features):
+                        #        img = fea.cpu().detach().numpy().mean(axis=0)
+                        #        name = f'{b}_{names[i]}.png'
+                        #        figure()
+                        #        imshow(img)
+                        #        title(name)
+                        #        imsave(name, img)
+                        # # show()
+                        # from IPython import embed;embed()
                         ################
+
                         h = transformed_h
 
                 h = self.cell_list[layer_idx](

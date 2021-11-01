@@ -79,7 +79,8 @@ class HarDBlock_v2(nn.Module):
           accum_out_ch = sum( self.out_partition[i] )
           real_out_ch = self.out_partition[i][0]
           #print( self.links[i],  self.out_partition[i], accum_out_ch)
-          conv_layers_.append( nn.Conv2d(cur_ch, accum_out_ch, kernel_size=3, stride=1, padding=1, bias=True) )
+          conv_layers_.append( nn.Conv2d(cur_ch, accum_out_ch,
+              kernel_size=3, stride=1, padding=1, bias=True) )
           bnrelu_layers_.append( BRLayer(real_out_ch) )
           cur_ch = real_out_ch
           if (i % 2 == 0) or (i == n_layers - 1):
@@ -662,9 +663,19 @@ class HardNet1024Skip(nn.Module):
     """
     Tuned for input size of 1024 x 1024 (or similar)
     """
-    def __init__(self, input_ch, n_classes=19):
+    def __init__(self, input_ch, n_classes=19, guide=[], guide_num_channels=0):
         super(HardNet1024Skip, self).__init__()
 
+        for x in guide:
+            if x not in ['input', 'encoder', 'decoder']:
+                raise Exception('Invalid guide {}'.format(x))
+
+
+        self.guide_input = ('input' in guide) * guide_num_channels
+        self.guide_encoder = ('encoder' in guide) * guide_num_channels
+        self.guide_decoder = ('decoder' in guide) * guide_num_channels
+      
+        
         ch_list = [32, 64, 96, 128, 160]
         grmul = 1.7
         gr = [10, 16, 18, 24, 32]
@@ -675,12 +686,15 @@ class HardNet1024Skip(nn.Module):
 
         self.base = nn.ModuleList([])
         self.predownsample_ch = 32
-        self.base.append(ConvLayer(in_channels=input_ch, out_channels=self.predownsample_ch,
-                                   kernel=3, stride=2))
+        self.base.append(ConvLayer(in_channels=input_ch+self.guide_input,
+            out_channels=self.predownsample_ch, kernel=3, stride=2))
 
+        self.guided_layers = []
         skip_connection_channel_counts = []
         ch = 32
         for i in range(blks):
+            self.guided_layers.append(len(self.base) - 1)
+            ch += self.guide_encoder
             blk = HarDBlock(ch, gr[i], grmul, n_layers[i])
             ch = blk.get_out_ch()
             skip_connection_channel_counts.append(ch)
@@ -711,7 +725,7 @@ class HardNet1024Skip(nn.Module):
             self.transUpBlocks.append(TransitionUp(prev_block_channels, prev_block_channels))
             cur_channels_count = prev_block_channels + skip_connection_channel_counts[i]
             self.conv1x1_up.append(ConvLayer(cur_channels_count, cur_channels_count // 2, kernel=1))
-            cur_channels_count = cur_channels_count // 2
+            cur_channels_count = cur_channels_count // 2 + self.guide_decoder
 
             blk = HarDBlock(cur_channels_count, gr[i], grmul, n_layers[i])
 
@@ -738,13 +752,29 @@ class HardNet1024Skip(nn.Module):
             self.denseBlocksUp[i] = HarDBlock_v2(blk.in_channels, blk.growth_rate, blk.grmul, blk.n_layers)
             self.denseBlocksUp[i].transform(blk, trt)
 
-    def forward(self, x):
+    def forward(self, x, guide=None):
         skip_connections = []
         size_in = x.size()
         inputs = x
 
+
+        mulres_guide = {x.shape[2:]: guide}
+        def cat_guide(x):
+            res = x.shape[2:]
+            if res in mulres_guide:
+                ng = mulres_guide[res]
+            else:
+                ng = F.interpolate(guide, size=res, align_corners=True, mode='bilinear')
+                mulres_guide[res] = ng
+            return torch.cat([x, ng], dim=1)
+
+        if self.guide_input:
+            x = cat_guide(x)
+
         for i in range(len(self.base)):
             x = self.base[i](x)
+            if self.guide_encoder and i in self.guided_layers:
+                x = cat_guide(x)
             if i in self.shortcut_layers:
                 skip_connections.append(x)
         out = x
@@ -753,11 +783,13 @@ class HardNet1024Skip(nn.Module):
             skip = skip_connections.pop()
             out = self.transUpBlocks[i](out, skip, True)
             out = self.conv1x1_up[i](out)
+            if self.guide_decoder:
+                out = cat_guide(out)
             out = self.denseBlocksUp[i](out)
 
         out = F.relu(self.final_upsample(out, output_size=(out.size(0), out.size(1)) + size_in[2:4]))
-
         out = torch.cat([inputs, out], dim=1)
+
         out = self.finalConv(out)
         return out
 

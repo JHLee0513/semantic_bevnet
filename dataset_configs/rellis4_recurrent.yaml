@@ -1,0 +1,29 @@
+includes: [data_formats.yaml]
+
+# for visualization
+dataset_type: "costmap_4"
+
+voxelizer:
+  max_number_of_points_per_voxel : 5
+  full_mean : False
+  max_voxels: 20000
+
+data_format:
+  <<: *rellis4
+
+train_input_reader:
+  sequences: ['00000', '00001', '00002', '00003']
+
+  miniseq_sampler:
+    len: 18
+    chunck_len: 3
+    stride: [1, 10, 20]
+
+  pc_augmentation:
+    - name: "drop_points"
+    - name: "translate"
+    - name: "rotate"
+    - name: "flip_y" 
+
+eval_input_reader:
+  sequences: ['00004']

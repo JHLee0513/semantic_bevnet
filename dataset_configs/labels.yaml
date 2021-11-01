@@ -1,0 +1,63 @@
+
+# Label names. Assumes that the labels are mapped and shifted by -1
+# so labels start from 0 and 19 is the unknown class.
+kitti19_labels: &kitti19_labels
+  i0: "car"
+  i1: "bicycle"
+  i2: "motorcycle"
+  i3: "truck"
+  i4: "bus_on-rails_other-vehicle"
+  i5: "person"
+  i6: "bicyclist"
+  i7: "motorcyclist"
+  i8: "road"
+  i9: "parking"
+  i10: "sidewalk"
+  i11: "other-ground"
+  i12: "building"
+  i13: "fence"
+  i14: "vegetation"
+  i15: "truck"
+  i16: "terrain"
+  i17: "pole"
+  i18: "traffic-sign"
+  i19: "unknown"
+
+
+
+## This is the original label map. We do this mapping in the data prepration.
+kitti19_label_map: &original_kitti19_label_map
+  i0: 0     # "unlabeled"
+  i1: 0     # "outlier" mapped to "unlabeled" ---------------------------mapped
+  i10: 1     # "car"
+  i11: 2     # "bicycle"
+  i13: 5     # "bus" mapped to "other-vehicle" --------------------------mapped
+  i15: 3     # "motorcycle"
+  i16: 5     # "on-rails" mapped to "other-vehicle" ---------------------mapped
+  i18: 4     # "truck"
+  i20: 5     # "other-vehicle"
+  i30: 6     # "person"
+  i31: 7     # "bicyclist"
+  i32: 8     # "motorcyclist"
+  i40: 9     # "road"
+  i44: 10    # "parking"
+  i48: 11    # "sidewalk"
+  i49: 12    # "other-ground"
+  i50: 13    # "building"
+  i51: 14    # "fence"
+  i52: 0     # "other-structure" mapped to "unlabeled" ------------------mapped
+  i60: 9     # "lane-marking" to "road" ---------------------------------mapped
+  i70: 15    # "vegetation"
+  i71: 16    # "trunk"
+  i72: 17    # "terrain"
+  i80: 18    # "pole"
+  i81: 19    # "traffic-sign"
+  i99: 0     # "other-object" to "unlabeled" ----------------------------mapped
+  i252: 1    # "moving-car" to "car" ------------------------------------mapped
+  i253: 7    # "moving-bicyclist" to "bicyclist" ------------------------mapped
+  i254: 6    # "moving-person" to "person" ------------------------------mapped
+  i255: 8    # "moving-motorcyclist" to "motorcyclist" ------------------mapped
+  i256: 5    # "moving-on-rails" mapped to "other-vehicle" --------------mapped
+  i257: 5    # "moving-bus" mapped to "other-vehicle" -------------------mapped
+  i258: 4    # "moving-truck" to "truck" --------------------------------mapped
+  i259: 5    # "moving-other"-vehicle to "other-vehicle" ----------------mapped

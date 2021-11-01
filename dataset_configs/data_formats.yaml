@@ -1,0 +1,41 @@
+includes: ["labels.yaml"]
+
+kitti_format: &kitti19
+  point_cloud:
+    range : [0.0, -25.6, -3.0, 51.2, 25.6, 3.0]
+    voxel_size : [0.2, 0.2, 0.2]
+    poses: "calib_poses.txt"
+
+  outputs:
+    - type: bev_label
+      dir: "bev_labels"
+    - type: lidar
+      dir: "velodyne"
+    - type: costmap_pose
+      name: "costmap_pose"
+      map_shape:
+        range: [0.0, -25.6, 51.2, 25.6]
+        pixel_size: [0.2, 0.2]
+
+  labels:
+    <<: *kitti19_labels
+
+rellis_format: &rellis4
+  point_cloud:
+    range : [-51.2, -51.2, -2.0, 51.2, 51.2, 1.0]
+    voxel_size : [0.2, 0.2, 0.1]
+    poses: "poses.txt"
+
+  outputs:
+    - type: bev_label
+      dir: "bev_labels"
+    - type: lidar
+      dir: "velodyne"
+    - type: costmap_pose
+      name: "costmap_pose"
+      map_shape:
+        range: [-51.2, -51.2, 51.2, 51.2]
+        pixel_size: [0.2, 0.2]
+
+  # labels:
+  #   <<: *rellis4_labels

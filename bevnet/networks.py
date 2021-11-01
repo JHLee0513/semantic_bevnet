@@ -4,8 +4,11 @@ import numpy as np
 import spconv
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import fchardnet
 import convgru
+from efficientnet_pytorch import EfficientNet
+from torchvision.models.resnet import resnet18
 
 
 class VoxelFeatureExtractorV3(nn.Module):
@@ -18,25 +21,6 @@ class VoxelFeatureExtractorV3(nn.Module):
         points_mean = features.sum(
             dim=1, keepdim=False) / num_voxels.type_as(features).view(-1, 1)
         return points_mean.contiguous()
-
-
-class VoxelFeatureExtractorV3MultiStep(nn.Module):
-    def __init__(self):
-        super(VoxelFeatureExtractorV3MultiStep, self).__init__()
-
-    def forward(self, features, num_voxels):
-        # features: T x [concated_num_points, num_voxel_size, 3(4)]
-        # num_voxels: T x [concated_num_points]
-        # returns list of T x [num_voxels]
-        t = len(features)
-        output = []
-        for i in range(t):
-            features_single = features[i]
-            num_single = num_voxels[i]
-            points_mean = features_single.sum(
-                dim=1, keepdim=False) / num_single.type_as(features_single).view(-1, 1)
-            output.append(points_mean.contiguous())
-        return output
 
 
 class SpMiddleNoDownsampleXY(nn.Module):
@@ -100,32 +84,6 @@ class SpMiddleNoDownsampleXY(nn.Module):
         ret = ret.view(N, C * D, H, W)
         return ret
 
-
-class SpMiddleNoDownsampleXYMultiStep(SpMiddleNoDownsampleXY):
-    """
-    No gradients!
-    """
-    def __init__(self, *args, **kwargs):
-        super(SpMiddleNoDownsampleXYMultiStep, self).__init__(*args, **kwargs)
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        with torch.no_grad():
-            t = len(voxel_features)
-            output = []
-            for i in range(t):
-                voxel_features_i = voxel_features[i]
-                coors_i = coors[i]
-                coors_i = coors_i.int()
-                ret = spconv.SparseConvTensor(voxel_features_i, coors_i, self.sparse_shape, batch_size)
-                ret = self.middle_conv(ret)
-                ret = ret.dense()
-                N, C, D, H, W = ret.shape
-                ret = ret.view(N, C * D, H, W)
-                output.append(ret.detach())
-            return output
-
-
 class SpMiddleNoDownsampleXYNoExpand(nn.Module):
     """
     Only downsample z. Do not downsample X and Y.
@@ -188,31 +146,6 @@ class SpMiddleNoDownsampleXYNoExpand(nn.Module):
         N, C, D, H, W = ret.shape
         ret = ret.view(N, C * D, H, W)
         return ret
-
-
-class SpMiddleNoDownsampleXYNoExpandMultiStep(SpMiddleNoDownsampleXYNoExpand):
-    """
-    No gradients!
-    """
-    def __init__(self, *args, **kwargs):
-        super(SpMiddleNoDownsampleXYNoExpandMultiStep, self).__init__(*args, **kwargs)
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        with torch.no_grad():
-            t = len(voxel_features)
-            output = []
-            for i in range(t):
-                voxel_features_i = voxel_features[i]
-                coors_i = coors[i]
-                coors_i = coors_i.int()
-                ret = spconv.SparseConvTensor(voxel_features_i, coors_i, self.sparse_shape, batch_size)
-                ret = self.middle_conv(ret)
-                ret = ret.dense()
-                N, C, D, H, W = ret.shape
-                ret = ret.view(N, C * D, H, W)
-                output.append(ret.detach())
-            return output
 
 
 class MiddleNoDownsampleXY(nn.Module):
@@ -338,39 +271,6 @@ class MiddleMENoDownsampleXY(MiddleMEBase, nn.Module):
         return ret
 
 
-class MiddleMENoDownsampleXYMultiStep(MiddleMENoDownsampleXY):
-    """
-    No gradients!
-    """
-    def __init__(self, *args, **kwargs):
-        super(MiddleMENoDownsampleXYMultiStep, self).__init__(*args, **kwargs)
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        with torch.no_grad():
-            t = len(voxel_features)
-
-            coors2 = []
-            for i in range(t):
-                coors2.append(coors[i][:, 1:].int())  # Remove the batch indices
-
-            batch_coords, batch_features = ME.utils.sparse_collate(coors2, voxel_features, device='cuda')
-
-            inputs = ME.SparseTensor(features=batch_features, coordinates=batch_coords,
-                                     minkowski_algorithm=ME.MinkowskiAlgorithm.MEMORY_EFFICIENT)
-
-            out = self.convs(inputs)
-            out = self._prune(out, self.output_shape)
-
-            ret, min_coord, stride = out.dense(
-                shape=torch.Size((t,) + self.output_shape),
-                min_coordinate=torch.zeros(3, dtype=torch.int32, device='cpu'))
-
-            N, C, D, H, W = ret.shape
-            ret = ret.view(N, 1, C * D, H, W).detach()
-            return ret
-
-
 class MiddleMENoDownsampleXYMaxPool(MiddleMEBase, nn.Module):
     """
     Only downsample z. Do not downsample X and Y.
@@ -434,48 +334,6 @@ class MiddleMENoDownsampleXYMaxPool(MiddleMEBase, nn.Module):
         ret = ret.view(N, C * D, H, W)
         return ret
 
-
-class MiddleMENoDownsampleXYMaxPoolMultiStep(MiddleMENoDownsampleXYMaxPool):
-    """
-    No gradients!
-    """
-    def __init__(self, bottleneck_features=None, **kwargs):
-        super(MiddleMENoDownsampleXYMaxPoolMultiStep, self).__init__(**kwargs)
-        if bottleneck_features is not None:
-            out_ch = self.output_shape[0] * self.output_shape[1]
-            self.bottleneck = nn.Conv2d(out_ch, bottleneck_features, 1, 1)
-        else:
-            self.bottleneck = None
-
-    def forward(self, voxel_features, coors, batch_size):
-        self.eval()
-        with torch.no_grad():
-            t = len(voxel_features)
-
-            coors2 = []
-            for i in range(t):
-                coors2.append(coors[i][:, 1:].int())  # Remove the batch indices
-
-            batch_coords, batch_features = ME.utils.sparse_collate(coors2, voxel_features, device='cuda')
-
-            inputs = ME.SparseTensor(features=batch_features, coordinates=batch_coords,
-                                     minkowski_algorithm=ME.MinkowskiAlgorithm.MEMORY_EFFICIENT)
-
-            out = self.convs(inputs)
-            out = self._prune(out, self.output_shape)
-
-            ret, min_coord, stride = out.dense(
-                shape=torch.Size((t,) + self.output_shape),
-                min_coordinate=torch.zeros(3, dtype=torch.int32, device='cpu'))
-
-            N, C, D, H, W = ret.shape
-            out = ret.view(N, 1, C * D, H, W)
-
-        if self.bottleneck is not None:
-            out = self.bottleneck(out.view(N, C * D, H, W))
-            out = out.view(N, 1, -1, H, W)
-
-        return out
 
 
 class MiddleMENoDownsampleXYMaxPoolV2(MiddleMEBase, nn.Module):
@@ -552,42 +410,6 @@ class MiddleMENoDownsampleXYMaxPoolV2(MiddleMEBase, nn.Module):
         if self.bottleneck is not None:
             out = self.bottleneck(out)
         return out
-
-
-class MiddleMENoDownsampleXYMaxPoolV2MultiStep(MiddleMENoDownsampleXYMaxPoolV2):
-    def __init__(self, no_gradients=True, **kwargs):
-        super(MiddleMENoDownsampleXYMaxPoolV2MultiStep, self).__init__(**kwargs)
-        self.no_gradients = no_gradients
-
-    def _forward_helper(self, voxel_features, coors, batch_size):
-        assert batch_size == 1
-        t = len(voxel_features)
-
-        coors2 = []
-        for i in range(t):
-            coors2.append(coors[i][:, 1:].int())  # Remove the batch indices
-
-        batch_coords, batch_features = ME.utils.sparse_collate(coors2, voxel_features, device='cuda')
-
-        inputs = ME.SparseTensor(features=batch_features,
-                                 coordinates=batch_coords,
-                                 minkowski_algorithm=ME.MinkowskiAlgorithm.MEMORY_EFFICIENT)
-
-        out = self.convs(inputs)
-        ret, min_coord, stride = out.dense(
-            shape=torch.Size((t,) + self.output_shape),
-            min_coordinate=torch.zeros(3, dtype=torch.int32, device='cpu'))
-
-        N, C, D, H, W = ret.shape
-        return ret.view(N, 1, C * D, H, W)
-
-    def forward(self, voxel_features, coors, batch_size):
-        if self.no_gradients:
-            self.eval()
-            with torch.no_grad():
-                return self._forward_helper(voxel_features, coors, batch_size)
-        else:
-            return self._forward_helper(voxel_features, coors, batch_size)
 
 
 class MiddleMENoDownsampleXYResMaxPool(MiddleMEBase, nn.Module):
@@ -674,111 +496,195 @@ class MiddleMENoDownsampleXYResMaxPool(MiddleMEBase, nn.Module):
         ret = ret.view(N, C * D, H, W)
         return ret
 
-
-class InpaintingFCHardnetRecurrentBase(object):
+class MergeUnit(nn.Module):
     def __init__(self,
-                 aggregation_type='pre',
-                 gru_input_size=(256, 256),
-                 gru_input_dim=448,
-                 gru_hidden_dims=[448],
-                 gru_cell_type='standard',
-                 noisy_pose=False, **kwargs):
-        super(InpaintingFCHardnetRecurrentBase, self).__init__(**kwargs)
+            input_channels,
+            rnn_input_channels=None,
+            rnn_config=None,
+            costmap_pose_name=None):
+        super(MergeUnit, self).__init__()
 
-        assert aggregation_type in ['pre', 'post', 'none'], aggregation_type
-        self.aggregation_type = aggregation_type
+        if rnn_input_channels is None:
+            self.pre_rnn_conv = None
+            rnn_input_channels = input_channels
+        else:
+            self.pre_rnn_conv = fchardnet.ConvLayer(input_channels,
+                                                    rnn_input_channels,
+                                                    kernel=1,
+                                                    bn=True)
 
-        if aggregation_type != 'none':
-            ### Amirreza: GRU parameters are hardcoded for now
-            self.gru = convgru.ConvGRU(input_size=gru_input_size,
-                                       input_dim=gru_input_dim,
-                                       hidden_dim=gru_hidden_dims,
-                                       kernel_size=(3, 3),
-                                       num_layers=len(gru_hidden_dims),
+        self.costmap_pose_name = costmap_pose_name
+        if rnn_config is None:
+            self.rnn = None
+        else:
+            self.groups = rnn_config.get('groups', 1)
+            hidden_dims = rnn_config['hidden_dims']
+
+            if rnn_input_channels % self.groups:
+                raise Exception(f'RNN input channels {rnn_input_channels}'
+                                 ' is not divisible by groups!')
+            if any([d % self.groups for d in hidden_dims]):
+                raise Exception(f'Not all the hidden_dims are divisible by groups!')
+
+
+            rnn_input_channels //= self.groups
+            hidden_dims = [h//self.groups for h in hidden_dims]
+
+
+            self.rnn = convgru.ConvGRU(input_size=rnn_config['input_size'],
+                                       input_dim=rnn_input_channels,
+                                       hidden_dim=hidden_dims,
+                                       kernel_size=rnn_config.get('kernel_size', (3,3)),
+                                       num_layers=len(hidden_dims),
                                        dtype=torch.cuda.FloatTensor,
                                        batch_first=True,
                                        bias=True,
                                        return_all_layers=True,
-                                       noisy_pose=noisy_pose,
-                                       cell_type=gru_cell_type)
+                                       noisy_pose=rnn_config.get('noisy_pose', False),
+                                       cell_type=rnn_config.get('cell_type', 'standard'))
 
-            def get_poses(input_pose):
-                # convert to matrix
-                mat = torch.zeros(input_pose.shape[0], # batch_size
-                                  input_pose.shape[1], # t
-                                  3, 3, dtype=input_pose.dtype,
-                                  device=input_pose.device)
+    def forward(self, x, t=1, bos=None, pose=None):
+        if self.pre_rnn_conv is not None:
+            x = self.pre_rnn_conv(x)
 
-                mat[:, :, 0] = input_pose[:, :, :3]
-                mat[:, :, 1] = input_pose[:, :, 3:6]
-                mat[:, :, 2, 2] = 1.0
+        if self.rnn is not None:
+            assert(bos is not None and pose is not None)
 
-                # We are using two GRU cells with the same poses
-                return mat[:, :, None]
+            ### reshape (bt, c, h, w) --> (b, t, c, h, w)
+            bt, c, h, w = x.shape
+            b = bt//t
+            bos = bos.reshape(b, t)
+            pose = pose.reshape(b, t, 3, 3)
 
-            self.get_poses = get_poses
+            if self.groups > 1:
+                bg = b * self.groups
 
-    def forward(self, x, seq_start=None, input_pose=None):
-        n, c, h, w = x[0].shape
-        t = len(x)
+                # move groups to batch
+                assert(c % self.groups == 0)
+                x = x.reshape(b, t, self.groups, c//self.groups, h, w)
+                # t <-> self.groups
+                x = x.transpose(1, 2)
+                x = x.reshape(bg, t, c//self.groups, h , w)
 
-        if isinstance(x, list):
-            x = torch.cat(x, dim=0)
-        elif isinstance(x, torch.Tensor):
-            x = x.view((-1,) + x.size()[2:])  # Fuse dim 0 and 1
-
-        if self.aggregation_type != 'none':
-            if seq_start is None:
-                self.hidden_state = None
+                bos = bos.repeat(self.groups, 1)
+                pose = pose.repeat(self.groups, 1 , 1, 1)
             else:
-                # sanity check: only the first index can be True
-                assert(torch.any(seq_start[1:]) == False)
+                x = x.reshape(b, t, c, h, w)
 
-                if seq_start[0]:  # start of a new sequence
-                    self.hidden_state = None
-        if self.aggregation_type == 'pre':
-            layer_output_list, last_state_list = self.gru(x[None],
-                                                          self.get_poses(input_pose[None]),
+            # We simplify things assuming that bos[:, t] is *all* True or False
+            assert(torch.all(torch.all(bos, axis=0) ^ torch.all(~bos, axis=0)))
+
+            # Also we furthur simplify things assuming that only bos[:, 0] can be true :)
+            assert(torch.any(bos[0, 1:]) == False), ('Only the first element in the chunk '
+                                                     'can be begging of the sequence. '
+                                                     'Make sure "miniseq_sampler.len" is '
+                                                     'divisible by "miniseq_sampler.chunk_len".')
+
+            if bos[0, 0]:  # start of a new sequence
+                self.hidden_state = None
+
+            ## We keep the translation and resolution the same for
+            # all the rnn layers so we can use same pose for all
+            # layers.
+            pose = pose[:, :, None].expand(-1, -1, self.rnn.num_layers, -1, -1)
+            layer_output_list, last_state_list = self.rnn(x, pose,
                                                           hidden_state=self.hidden_state)
-            x = layer_output_list[-1].squeeze(0)
 
-        out = self.fchardnet(x)
 
-        if self.aggregation_type == 'post':
-            layer_output_list, last_state_list = self.gru(out[None],
-                                                          self.get_poses(input_pose[None]),
-                                                          hidden_state=self.hidden_state)
-            out = layer_output_list[-1].squeeze(0)
-
-        if self.aggregation_type != 'none':
             self.hidden_state = []
             for state in last_state_list:
+                assert(len(state) == 1)
                 dstate = state[0].detach()
                 dstate.requires_grad = True
                 self.hidden_state.append(dstate)
 
-        num_class = out.shape[1]
-        out = out.reshape((t, n, num_class, h, w))
-        ret_dict = {
-            "bev_preds": out,
-        }
-        return ret_dict
+            x = layer_output_list[-1]
 
+            if self.groups > 1:
+                x = x.reshape(b, self.groups, t, c//self.groups, h, w)
+                # self.groups <-> t
+                x = x.transpose(1, 2)
+
+            x = x.reshape(bt, c, h, w)
+
+        return x
 
 class InpaintingFCHardNetSkip1024(nn.Module):
     def __init__(self,
                  num_class=2,
-                 num_input_features=128):
+                 num_input_features=128,
+                 guide=[],
+                 guide_num_channels=0):
+
         super(InpaintingFCHardNetSkip1024, self).__init__()
-        self.fchardnet = fchardnet.HardNet1024Skip(num_input_features, num_class)
+        self.fchardnet = fchardnet.HardNet1024Skip(num_input_features, num_class,
+                guide=guide, guide_num_channels=guide_num_channels)
 
     def forward(self, x, *args, **kwargs):
-        out = self.fchardnet(x)
+        out = self.fchardnet(x, *args, **kwargs)
         ret_dict = {
             "bev_preds": out,
         }
         return ret_dict
 
 
-class InpaintingFCHardNetSkipGRU512(InpaintingFCHardnetRecurrentBase, InpaintingFCHardNetSkip1024):
-    pass
+class InpaintingResNet18(nn.Module):
+    def __init__(self, num_input_features, num_class):
+        super(InpaintingResNet18, self).__init__()
+
+        trunk = resnet18(pretrained=False, zero_init_residual=True)
+        self.conv1 = nn.Conv2d(
+            num_input_features, 64, kernel_size=7, stride=2, padding=3, bias=False
+        )
+        self.bn1 = trunk.bn1
+        self.relu = trunk.relu
+
+        self.layer1 = trunk.layer1
+        self.layer2 = trunk.layer2
+        self.layer3 = trunk.layer3
+
+        self.up1 = Up(64+256, 256, scale_factor=4)
+        self.up2 = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.Conv2d(256, 128, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, num_class, kernel_size=1, padding=0),
+        )
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+
+        x1 = self.layer1(x)
+        x = self.layer2(x1)
+        x = self.layer3(x)
+
+        x = self.up1(x, x1)
+        x = self.up2(x)
+
+        return dict(bev_preds=x)
+
+
+class Up(nn.Module):
+    def __init__(self, inC, outC, scale_factor=2):
+        super().__init__()
+
+        self.up = nn.Upsample(
+            scale_factor=scale_factor, mode='bilinear', align_corners=False
+        )
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(inC, outC, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(outC),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(outC, outC, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(outC),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        x1 = torch.cat([x2, x1], dim=1)
+        return self.conv(x1)

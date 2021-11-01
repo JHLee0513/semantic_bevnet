@@ -1,14 +1,5 @@
 # BEVNet
 
-Source code for our work **"Semantic Terrain Classification for Off-Road Autonomous Driving"**
-
-## TODOs
-- [x] source code upload
-- [ ] model weights upload
-- [ ] dataset upload
-- [ ] Instructions on dataset generation
-- [ ] Instructions on inference
-
 ## Datasets
 Datasets should be put inside `data/`. For example, `data/semantic_kitti_4class_100x100`.
 

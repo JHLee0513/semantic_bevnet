@@ -20,14 +20,25 @@ def convert(src_dir, dst_dir):
         for i in range(start, end):
             shutil.copy(os.path.join(src_subdir, fmt % i), dst_subdir)
 
+    lidar2cam2 = np.loadtxt(os.path.join(src_dir, 'lidar_cam2_transform.txt'))
+    lidar2cam3 = np.loadtxt(os.path.join(src_dir, 'lidar_cam3_transform.txt'))
+    cam2_K = np.loadtxt(os.path.join(src_dir, 'cam2_K.txt'))
+    cam3_K = np.loadtxt(os.path.join(src_dir, 'cam3_K.txt'))
     poses = np.loadtxt(os.path.join(src_dir, 'poses.txt'))
     costmap_poses = np.loadtxt(os.path.join(src_dir, 'costmap_poses.txt'))
 
     for seq_id, (start, end) in segments:
         print('copying', seq_id)
         subdir = os.path.join(dst_dir, str(seq_id))
-        copy_helper(str(seq_id), 'bev_labels', '%05d.png', start, end)
+        copy_helper(str(seq_id), 'image_2', '%05d.png', start, end)
+        copy_helper(str(seq_id), 'image_3', '%05d.png', start, end)
         copy_helper(str(seq_id), 'velodyne', '%05d.bin', start, end)
+        copy_helper(str(seq_id), 'labels', '%05d.label', start, end)
+        copy_helper(str(seq_id), 'bev_labels', '%05d.png', start, end)
+        np.savetxt(os.path.join(subdir, 'base_cam2.txt'), lidar2cam2[start:end], '%.8e')
+        np.savetxt(os.path.join(subdir, 'base_cam3.txt'), lidar2cam3[start:end], '%.8e')
+        np.savetxt(os.path.join(subdir, 'cam2_K.txt'), cam2_K[start], '%.8e')
+        np.savetxt(os.path.join(subdir, 'cam3_K.txt'), cam3_K[start], '%.8e')
         np.savetxt(os.path.join(subdir, 'poses.txt'), poses[start:end], '%.8e')
         np.savetxt(os.path.join(subdir, 'costmap_poses.txt'), costmap_poses[start:end], '%.8e')
 

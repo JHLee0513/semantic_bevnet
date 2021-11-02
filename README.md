@@ -1,7 +1,21 @@
 # BEVNet
+Source code for our work **"Semantic Terrain Classification for Off-Road Autonomous Driving"**
+
+[website](https://sites.google.com/view/terrain-traversability/home)
+![Alt Text](figs/canal.gif)
+Our BEVNet-R on completly unseen data/envrionment. 
+
+## TODOs
+- [x] source code upload
+- [ ] model weights upload
+- [ ] dataset upload
+- [ ] Instructions on dataset generation
+- [ ] Instructions on inference
+- [ ] experiment results
+- [ ] arxiv link
 
 ## Datasets
-Datasets should be put inside `data/`. For example, `data/semantic_kitti_4class_100x100`.
+Datasets should be put inside `data/`. For example, `data/semantic_kitti_4class_100x100`. You can either generate the datset or download them here(link TBD).
 
 ## Training
 
@@ -31,3 +45,9 @@ bash train_kitti4-unknown_recurrent.sh kitti4_100/recurrent/include_unknown/defa
 ```
 Logs and model weights will be stored in a subdirectory of the config file 
 `experiments/kitti4_100/recurrent/include_unknown/default-<tag>-logs/`.
+
+## Evaluation
+to test the model add `--test` argument to the same command that would be (was) for training. This runs evaluation and saves predictions in a new directory in the log directory. To create video of the visualized predictions
+```
+python tools/create_videos.py -i /path/to/logfile/test/epoch-x/vis/
+```

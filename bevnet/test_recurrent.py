@@ -1,3 +1,4 @@
+import argparse
 import os
 import cv2
 import numpy as np
@@ -10,10 +11,18 @@ from bevnet.train_fixture_utils import make_label_vis, get_colormap
 from bevnet.test_sequence_factory import make
 
 
-# MODEL_FILE = '../experiments/rellis4_100/recurrent/randrot/minkowski_maxpool_v2_simplegru_grad-debug-logs/model.pth.6'
-# MODEL_FILE = '../experiments/kitti-rellis-hill/recurrent/default-logs/model.pth.3'
-MODEL_FILE = '../experiments/rellis4_100/recurrent/default-smallrobot-logs/model.pth.9'
-TEST_ENV = 'rellis4_notrim'
+parser = argparse.ArgumentParser()
+parser.add_argument('--model_file', type=str, required=True, help='Path to the model.')
+parser.add_argument('--test_env', type=str, required=True,
+                    help='Test environment. See test_sequence_factory.py')
+parser.add_argument('--visualize', action='store_true',
+                    help='True to visualize the predictions.')
+opts = parser.parse_args()
+
+
+VISUALIZATION = opts.visualize
+MODEL_FILE = opts.model_file
+TEST_ENV = opts.test_env
 
 
 model = BEVNetRecurrent(MODEL_FILE)
@@ -45,16 +54,16 @@ for i in tqdm.trange(len(test_data['scan_files'])):
 
     e.append(pred[None], label_th[None])
 
-    cmap = get_colormap(model.g.dataset_type)
-    label_vis = make_label_vis(label, cmap)
-    pred_vis = make_label_vis(pred.cpu().numpy(), cmap)
-    vis = np.concatenate([pred_vis, label_vis], axis=1)
-    cv2.imshow('', cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
-    cv2.waitKey(1)
+    if VISUALIZATION:
+        cmap = get_colormap(model.g.dataset_type)
+        label_vis = make_label_vis(label, cmap)
+        pred_vis = make_label_vis(pred.cpu().numpy(), cmap)
+        vis = np.concatenate([pred_vis, label_vis], axis=1)
+        cv2.imshow('', cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+        cv2.waitKey(1)
 
-    if (i + 1) % 100 == 0:
-        print(e.meanIoU())
-
-
-print(e.meanIoU())
-print(e.classwiseIoU())
+ious = e.classwiseIoU()
+if model.g.include_unknown:
+    ious = ious[:-1]
+print('ious:', ious)
+print('miou:', np.mean(ious))

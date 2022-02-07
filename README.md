@@ -4,17 +4,18 @@ Source code for our work **"Semantic Terrain Classification for Off-Road Autonom
 
 ## TODOs
 - [x] source code upload
-- [ ] model weights upload
-- [ ] dataset upload
+- [x] model weights upload
+- [x] dataset upload
 - [ ] Instructions on dataset generation
-- [ ] Instructions on inference
+- [x] Instructions on inference
 
 ## Datasets
 Datasets should be put inside `data/`. For example, `data/semantic_kitti_4class_100x100`.
 
 ### Download links
-SemanticKITTI: [Google Drive](https://drive.google.com/file/d/1PsU0v5wC6n5gn7sK7uJS6p_8zbeK8szu/view?usp=sharing)
-RELLIS: (to be uploaded)
+
+* SemanticKITTI: [Google Drive](https://drive.google.com/file/d/1PsU0v5wC6n5gn7sK7uJS6p_8zbeK8szu/view?usp=sharing)
+* RELLIS: [Google Drive](https://drive.google.com/file/d/1oOGq1e5GK-TJ_J0D4L-JNpyCv40JNYPo/view?usp=sharing)
 
 ## Running the pretrained models
 
@@ -22,11 +23,11 @@ RELLIS: (to be uploaded)
 
 SemanticKITTI
 * Single-frame: [Google Drive](https://drive.google.com/file/d/1vtuowdWECV3agyFPQllArxpyKXio4WHl/view?usp=sharing)
-* Recurrent: [Google Drive](https://drive.google.com/file/d/1vtuowdWECV3agyFPQllArxpyKXio4WHl/view?usp=sharing)
+* Recurrent: [Google Drive](https://drive.google.com/file/d/1jHOyH5EV_SCJupOoPpBD_0DCFhVWm-ds/view?usp=sharing)
 
 RELLIS
-* (to be uploaded)
-* (to be uploaded)
+* Single-frame: [Google Drive](https://drive.google.com/file/d/16WzFsO_d96k4ASDpFWsEQn6IhGbXoT59/view?usp=sharing)
+* Recurrent: [Google Drive](https://drive.google.com/file/d/1c-_dCEJvRKbefRPuSYDMIpd8YZbeyMMM/view?usp=sharing)
 
 ### Run the models
 First extract the model weights
